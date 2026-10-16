@@ -1,0 +1,12 @@
+# Задание, шаг 3: зависимости проекта.
+fastapi
+uvicorn[standard]
+# Задание: sqlalchemy>=2.0. Сверх задания: extra [asyncio] — ставит greenlet,
+# без которого асинхронный режим SQLAlchemy не импортируется.
+sqlalchemy[asyncio]>=2.0
+asyncpg
+pydantic>=2
+pydantic-settings
+alembic
+# Сверх задания: нужен для типа EmailStr из шага 7.
+email-validator
