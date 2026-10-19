@@ -14,7 +14,7 @@ async def test_duplicate_email(client):
     payload = {"email": "dup@example.com", "name": "Bob"}
     assert (await client.post("/users", json=payload)).status_code == 201
     response = await client.post("/users", json=payload)
-    assert response.status_code == 201  # намеренно сломано (шаг 8)
+    assert response.status_code == 409
 
 
 async def test_invalid_email(client):
