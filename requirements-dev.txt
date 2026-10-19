@@ -1,0 +1,6 @@
+# Практическая работа №3, шаг 1: зависимости для разработки.
+-r requirements.txt
+pytest
+pytest-asyncio
+httpx
+ruff

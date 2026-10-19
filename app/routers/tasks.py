@@ -81,9 +81,7 @@ async def get_task(task_id: int, session: AsyncSession = Depends(get_session)):
 
 # Задание: PATCH /tasks/{id} — частичное обновление, 404 если нет, 422 при ошибке данных.
 @router.patch("/{task_id}", response_model=TaskRead, responses=TASK_NOT_FOUND)
-async def update_task(
-    task_id: int, data: TaskUpdate, session: AsyncSession = Depends(get_session)
-):
+async def update_task(task_id: int, data: TaskUpdate, session: AsyncSession = Depends(get_session)):
     task = await _get_task_or_404(task_id, session)
     # exclude_unset=True — берём только поля, которые клиент реально передал,
     # остальные поля задачи не трогаем.
@@ -95,9 +93,7 @@ async def update_task(
 
 
 # Задание: DELETE /tasks/{id} — удалить задачу, 204 без тела, 404 если нет.
-@router.delete(
-    "/{task_id}", status_code=status.HTTP_204_NO_CONTENT, responses=TASK_NOT_FOUND
-)
+@router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT, responses=TASK_NOT_FOUND)
 async def delete_task(task_id: int, session: AsyncSession = Depends(get_session)):
     task = await _get_task_or_404(task_id, session)
     await session.delete(task)

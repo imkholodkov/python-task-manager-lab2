@@ -25,9 +25,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String(100))
     # Задание: created_at. Значение проставляет сама БД (DEFAULT now()),
     # время хранится с часовым поясом.
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     # Задание, шаг 6: связь с задачами, парная к Task.owner.
     tasks: Mapped[list["Task"]] = relationship(back_populates="owner")
@@ -47,9 +45,7 @@ class Task(Base):
     # и в БД.
     done: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     # Задание: created_at.
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now()
-    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Задание: owner_id (FK User).
     # Сверх задания: index=True — индекс ускоряет фильтр GET /tasks?owner_id=...
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id"), index=True)
