@@ -7,6 +7,7 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
+# Настройки приложения: каждое поле читается из одноимённой переменной окружения.
 class Settings(BaseSettings):
     # Сверх задания: кроме переменной окружения, значение читается из файла .env
     # в корне проекта — так не нужно экспортировать DATABASE_URL перед каждым запуском.

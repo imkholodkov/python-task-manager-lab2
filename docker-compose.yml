@@ -11,13 +11,16 @@ services:
     ports: ["5432:5432"]
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Скрипт создаёт тестовую БД tasks_test при первом запуске тома.
       - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    # БД считается готовой, когда pg_isready отвечает успехом.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app -d tasks"]
       interval: 2s
       timeout: 3s
       retries: 15
 
+  # Одноразовый сервис: применяет миграции Alembic и завершается.
   migrate:
     build: .
     command: ["alembic", "upgrade", "head"]
@@ -27,6 +30,7 @@ services:
       db:
         condition: service_healthy
 
+  # Само приложение (uvicorn на порту 8000).
   app:
     build: .
     environment:
@@ -38,5 +42,6 @@ services:
       migrate:
         condition: service_completed_successfully
 
+# Том с данными PostgreSQL — данные переживают перезапуск контейнера.
 volumes:
   pgdata:

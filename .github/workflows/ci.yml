@@ -3,27 +3,35 @@
 # и только после успешных lint и test.
 name: CI
 
+# Запуск на любой push в любую ветку и на каждый pull request.
 on:
   push:
   pull_request:
 
+# Имя образа в реестрах GHCR и Docker Hub.
 env:
   IMAGE_NAME: python-task-manager
 
 jobs:
+  # Проверка стиля и ошибок кода линтером ruff.
   lint:
     runs-on: ubuntu-latest
     steps:
+      # Скачать код репозитория в раннер.
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
       - run: pip install ruff
+      # Ошибки и подозрительные места в коде.
       - run: ruff check .
+      # Код отформатирован единообразно (ничего не меняет, только проверяет).
       - run: ruff format --check .
 
+  # Запуск pytest против настоящей PostgreSQL.
   test:
     runs-on: ubuntu-latest
+    # Контейнер PostgreSQL рядом с job-ом; сразу создаётся БД tasks_test.
     services:
       postgres:
         image: postgres:16
@@ -32,11 +40,13 @@ jobs:
           POSTGRES_PASSWORD: app
           POSTGRES_DB: tasks_test
         ports: ["5432:5432"]
+        # Job ждёт, пока БД не начнёт отвечать на pg_isready.
         options: >-
           --health-cmd "pg_isready -U app -d tasks_test"
           --health-interval 2s
           --health-timeout 3s
           --health-retries 15
+    # Обе переменные указывают на тестовую БД из services.
     env:
       TEST_DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/tasks_test
       DATABASE_URL: postgresql+asyncpg://app:app@localhost:5432/tasks_test
@@ -45,30 +55,39 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+          # Кэш pip между запусками — зависимости ставятся быстрее.
           cache: pip
           cache-dependency-path: requirements*.txt
       - run: pip install -r requirements-dev.txt
       - run: pytest -v
 
+  # Сборка и публикация образа.
   build:
+    # Запускается только если lint и test прошли успешно.
     needs: [lint, test]
+    # Только при push в main, не на pull request и не в другие ветки.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    # GITHUB_TOKEN получает право публиковать пакеты в GHCR.
     permissions:
       contents: read
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # Buildx — сборщик Docker с поддержкой кэша.
       - uses: docker/setup-buildx-action@v3
+      # Вход в GitHub Container Registry встроенным токеном.
       - uses: docker/login-action@v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      # Вход в Docker Hub по секретам репозитория.
       - uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+      # Сборка по Dockerfile и публикация с тегами latest и SHA коммита.
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -78,5 +97,6 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+          # Слои образа кэшируются в GitHub Actions между запусками.
           cache-from: type=gha
           cache-to: type=gha,mode=max

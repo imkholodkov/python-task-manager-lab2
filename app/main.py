@@ -21,8 +21,10 @@ logger = logging.getLogger("app.requests")
 
 # Задание, шаг 10: middleware на базе Starlette (BaseHTTPMiddleware).
 class ProcessTimeMiddleware(BaseHTTPMiddleware):
+    # Вызывается на каждый запрос: замеряет время, за которое обработчик вернул ответ.
     async def dispatch(self, request: Request, call_next):
         start = time.perf_counter()
+        # Передаём запрос дальше — в роутеры — и ждём ответ.
         response = await call_next(request)
         elapsed = time.perf_counter() - start
         # Задание: заголовок X-Process-Time в ответе (время в секундах).

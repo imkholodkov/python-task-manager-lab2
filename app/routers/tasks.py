@@ -44,6 +44,7 @@ async def _get_task_or_404(task_id: int, session: AsyncSession) -> Task:
 async def create_task(data: TaskCreate, session: AsyncSession = Depends(get_session)):
     if await session.get(User, data.owner_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Owner not found")
+    # Создаём ORM-объект из полей схемы и сохраняем в БД.
     task = Task(**data.model_dump())
     session.add(task)
     await session.commit()
@@ -66,10 +67,12 @@ async def list_tasks(
     # Сверх задания: сортировка по id — без неё порядок строк в PostgreSQL
     # не гарантирован, и пагинация могла бы пропускать или дублировать задачи.
     query = select(Task).order_by(Task.id).limit(limit).offset(offset)
+    # Фильтры добавляются в запрос, только если параметр передан.
     if done is not None:
         query = query.where(Task.done == done)
     if owner_id is not None:
         query = query.where(Task.owner_id == owner_id)
+    # scalars(...) возвращает ORM-объекты Task, а не кортежи строк.
     return (await session.scalars(query)).all()
 
 
@@ -96,6 +99,7 @@ async def update_task(task_id: int, data: TaskUpdate, session: AsyncSession = De
 @router.delete("/{task_id}", status_code=status.HTTP_204_NO_CONTENT, responses=TASK_NOT_FOUND)
 async def delete_task(task_id: int, session: AsyncSession = Depends(get_session)):
     task = await _get_task_or_404(task_id, session)
+    # Удаляем задачу и фиксируем изменение в БД.
     await session.delete(task)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

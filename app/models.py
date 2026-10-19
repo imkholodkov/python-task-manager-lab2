@@ -13,6 +13,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db import Base
 
 
+# Пользователь — таблица users.
 class User(Base):
     __tablename__ = "users"
 
@@ -31,6 +32,7 @@ class User(Base):
     tasks: Mapped[list["Task"]] = relationship(back_populates="owner")
 
 
+# Задача — таблица tasks, у каждой задачи один владелец.
 class Task(Base):
     __tablename__ = "tasks"
 

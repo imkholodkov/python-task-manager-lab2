@@ -33,6 +33,7 @@ async def create_user(data: UserCreate, session: AsyncSession = Depends(get_sess
     exists = await session.scalar(select(User.id).where(User.email == data.email))
     if exists is not None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+    # Создаём ORM-объект из полей схемы и сохраняем в БД.
     user = User(**data.model_dump())
     session.add(user)
     try:
@@ -56,6 +57,7 @@ async def create_user(data: UserCreate, session: AsyncSession = Depends(get_sess
     responses={404: {"description": "User not found"}},
 )
 async def get_user(user_id: int, session: AsyncSession = Depends(get_session)):
+    # session.get ищет строку по первичному ключу; если её нет — None.
     user = await session.get(User, user_id)
     if user is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "User not found")
