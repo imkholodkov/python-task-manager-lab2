@@ -182,7 +182,11 @@ docker compose up -d --build
 
 Порядок старта: `db` проходит healthcheck (`pg_isready`) → `migrate` выполняет `alembic upgrade head` и завершается с кодом 0 → стартует `app` на http://localhost:8000/docs.
 
-Тесты внутри Compose-окружения (БД из Compose, тесты с хоста): `docker compose up -d db && pytest`.
+Тесты через Docker Compose (БД и pytest — оба в контейнерах):
+
+```bash
+docker compose --profile test run --rm tests
+```
 
 ## CI/CD
 
@@ -193,6 +197,8 @@ docker compose up -d --build
 - `build` — `needs: [lint, test]`, только при push в `main`: сборка образа и публикация в GHCR и Docker Hub (секреты `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`).
 
 Образ в GHCR: https://github.com/imkholodkov/python-task-manager-lab2/pkgs/container/python-task-manager
+
+Образ в Docker Hub: https://hub.docker.com/r/imkholodkov/python-task-manager
 
 ### Скриншоты
 
