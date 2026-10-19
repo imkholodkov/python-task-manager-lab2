@@ -21,6 +21,7 @@ def _not_null(value):
 
 # ---------- User ----------
 
+
 # Задание, шаг 7: схема входных данных для POST /users.
 class UserCreate(BaseModel):
     email: EmailStr
@@ -51,6 +52,7 @@ class UserRead(BaseModel):
 
 
 # ---------- Task ----------
+
 
 # Задание, шаг 7: схема входных данных для POST /tasks.
 class TaskCreate(BaseModel):

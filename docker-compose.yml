@@ -1,6 +1,6 @@
-# Задание, шаг 2: PostgreSQL 16 в Docker. Содержимое — один в один из задания.
-# Запуск: docker compose up -d db
-# Проверка: docker compose exec db psql -U app -d tasks -c "select 1"
+# Практическая работа №3, шаг 6: приложение + БД + миграции.
+# app стартует только после того, как БД прошла healthcheck
+# и сервис migrate успешно применил миграции.
 services:
   db:
     image: postgres:16
@@ -9,7 +9,34 @@ services:
       POSTGRES_PASSWORD: app
       POSTGRES_DB: tasks
     ports: ["5432:5432"]
-    # Данные хранятся в именованном томе pgdata и переживают перезапуск контейнера.
-    volumes: [pgdata:/var/lib/postgresql/data]
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/init-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app -d tasks"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  migrate:
+    build: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:app@db:5432/tasks
+    depends_on:
+      db:
+        condition: service_healthy
+
+  app:
+    build: .
+    environment:
+      DATABASE_URL: postgresql+asyncpg://app:app@db:5432/tasks
+    ports: ["8000:8000"]
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
 volumes:
   pgdata:

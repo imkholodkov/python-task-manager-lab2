@@ -1,5 +1,7 @@
 # Менеджер задач — FastAPI + PostgreSQL + SQLAlchemy + Pydantic
 
+[![CI](https://github.com/imkholodkov/python-task-manager-lab2/actions/workflows/ci.yml/badge.svg)](https://github.com/imkholodkov/python-task-manager-lab2/actions/workflows/ci.yml)
+
 Практическая работа № 2: REST API для хранения пользователей и их задач.
 
 Стек: FastAPI, Starlette (middleware), SQLAlchemy 2.0 (async, asyncpg), Pydantic v2, pydantic-settings, Alembic, PostgreSQL 16 в Docker.
@@ -154,3 +156,73 @@ Starlette — это сам веб-фреймворк: он принимает �
 | routers/*.py | коды 404 и 409 описаны в Swagger UI через `responses` |
 | main.py | настройка `logging.basicConfig` |
 | .gitignore | исключение `.venv`, `.env`, кэша и настроек IDE |
+
+---
+
+# Практическая работа № 3 — тесты, Docker, CI/CD
+
+## Тесты локально
+
+Тесты работают с реальной PostgreSQL, отдельной БД `tasks_test` (создаётся скриптом `docker/init-test-db.sql` при первом запуске тома). Таблицы создаются один раз за сессию, перед каждым тестом очищаются `TRUNCATE ... RESTART IDENTITY`; `get_session` подменяется через `app.dependency_overrides` (см. `tests/conftest.py`).
+
+```bash
+docker compose up -d db
+pip install -r requirements-dev.txt
+ruff check . && ruff format --check .
+pytest -v
+```
+
+Если том `pgdata` создан ещё в ПР № 2 и `tasks_test` в нём нет: `docker compose exec db createdb -U app tasks_test`. Другая БД задаётся переменной `TEST_DATABASE_URL`.
+
+## Запуск через Docker Compose
+
+```bash
+docker compose up -d --build
+```
+
+Порядок старта: `db` проходит healthcheck (`pg_isready`) → `migrate` выполняет `alembic upgrade head` и завершается с кодом 0 → стартует `app` на http://localhost:8000/docs.
+
+Тесты внутри Compose-окружения (БД из Compose, тесты с хоста): `docker compose up -d db && pytest`.
+
+## CI/CD
+
+`.github/workflows/ci.yml`:
+
+- `lint` — `ruff check` и `ruff format --check`, на каждый push и pull request;
+- `test` — pytest против сервиса `postgres:16`, на каждый push и pull request;
+- `build` — `needs: [lint, test]`, только при push в `main`: сборка образа и публикация в GHCR и Docker Hub (секреты `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`).
+
+Образ в GHCR: https://github.com/imkholodkov/python-task-manager-lab2/pkgs/container/python-task-manager
+
+### Скриншоты
+
+Успешный pipeline:
+
+![CI green](docs/screenshots/ci-green.png)
+
+«Упавший» pipeline (PR с намеренно сломанным тестом):
+
+![CI red](docs/screenshots/ci-red.png)
+
+## Ответы на контрольные вопросы ПР № 3
+
+**1. Чем CI отличается от CD (continuous delivery и continuous deployment)?**
+CI — каждое изменение автоматически собирается и проверяется (линтер, тесты), чтобы ошибки находились сразу. Continuous delivery — после CI получается готовый к выкладке артефакт (здесь — Docker-образ в реестре), а выкладку в прод запускает человек. Continuous deployment — выкладка в прод тоже автоматическая, без ручного шага.
+
+**2. Как работает dependency_overrides и зачем он нужен в тестах?**
+Это словарь `{исходная зависимость: замена}` у приложения FastAPI. Когда эндпоинт объявляет `Depends(get_session)`, FastAPI сначала смотрит в словарь и вызывает замену. В тестах так эндпоинты получают сессию к тестовой БД `tasks_test`, при этом код приложения не меняется.
+
+**3. Зачем нужна многоэтапная сборка образа?**
+На первом этапе ставятся зависимости (pip, кэши, при необходимости компиляторы), в финальный образ копируется только готовый venv и код. Образ меньше, в нём меньше лишних пакетов, а значит меньше уязвимостей и быстрее скачивание.
+
+**4. Почему контейнер не следует запускать от root?**
+root в контейнере — это тот же uid 0, что и на хосте. При уязвимости в приложении или ошибке изоляции атакующий получит права root и сможет больше: писать в смонтированные тома, пытаться выйти из контейнера. Непривилегированный пользователь ограничивает ущерб.
+
+**5. Как в GitHub Actions передаются секреты и почему их нельзя хранить в репозитории?**
+Секреты задаются в Settings → Secrets and variables → Actions, хранятся зашифрованными и подставляются в workflow через `${{ secrets.NAME }}`; в логах они маскируются. В репозитории их видит любой, у кого есть доступ к коду, и они остаются в истории git даже после удаления файла.
+
+**6. Что произойдёт с job-ом build, если упадёт test? Где это задаётся?**
+build не запустится (статус skipped), образ не опубликуется. Задаётся строкой `needs: [lint, test]` в job-е `build`.
+
+**7. Где лучше применять миграции: при старте контейнера или отдельным шагом в CD?**
+При старте контейнера (как сервис `migrate` здесь): просто, схема всегда актуальна. Минусы: при нескольких репликах миграции запускаются параллельно, долгая миграция задерживает старт, ошибка миграции роняет запуск приложения. Отдельный шаг в CD: миграция выполняется один раз, до выкладки, её можно контролировать и откатить, а при ошибке выкладка останавливается. Минус — сложнее pipeline, и новая схема должна быть совместима со старой версией кода, пока та ещё работает.

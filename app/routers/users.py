@@ -37,12 +37,12 @@ async def create_user(data: UserCreate, session: AsyncSession = Depends(get_sess
     session.add(user)
     try:
         await session.commit()
-    except IntegrityError:
+    except IntegrityError as err:
         # Сверх задания: защита от гонки — параллельный запрос успел занять тот же
         # email между проверкой выше и вставкой; уникальный индекс в БД отклонит
         # вставку, и клиент получит 409, а не 500.
         await session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered")
+        raise HTTPException(status.HTTP_409_CONFLICT, "Email already registered") from err
     # Перечитываем объект, чтобы получить id и created_at, проставленные БД.
     await session.refresh(user)
     return user
